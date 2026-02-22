@@ -8,6 +8,7 @@ import { UploadFilled, Refresh } from '@element-plus/icons-vue'
 // 响应式数据
 const videoUrl = ref('')
 const fileInput = ref<HTMLInputElement>()
+const uploadVideoInput = ref<File | null>(null)
 
 // 触发文件选择
 const triggerFileInput = () => {
@@ -22,6 +23,7 @@ const handleFileSelect = (event: Event) => {
     if (file) {
         // 创建视频预览URL
         videoUrl.value = URL.createObjectURL(file)
+        uploadVideoInput.value = file
 
         // 重置文件输入，允许选择相同的文件
         target.value = ''
@@ -50,14 +52,90 @@ let uploadProgress = ref(0)
 // 重新上传
 const resetUpload = () => {
     videoUrl.value = ''
+    uploadVideoInput.value = null
 }
+
+import api from '../api/api'
+import TOS from '@volcengine/tos-sdk';
+
+// 上传视频
+function uploadVideo() {
+    api.post('/v1/tos/token', {})
+        .then(res => {
+            //console.log(res.data)
+            handleUpload(res.data)
+        })
+        .catch(err => {
+            console.error('获取上传token失败', err)
+        })
+}
+
+function handleUpload(tokenRes: any) {
+    if (tokenRes.code !== 200) {
+        console.error('获取上传token失败')
+        return
+    }
+    console.log("start upload video")
+    const token = tokenRes.data.token
+    const accessKey = tokenRes.data.access_key_id
+    const secretKey = tokenRes.data.access_key_secret
+    console.log(accessKey)
+    console.log(secretKey)
+
+    const client = new TOS({
+         // 从 STS 服务获取的临时访问密钥 AccessKeyId
+        accessKeyId: accessKey,
+        // 从 STS 服务获取的临时访问密钥 AccessKeySecret
+        accessKeySecret: secretKey,
+        // 从 STS 服务获取的安全令牌 SessionToken
+        stsToken: token,
+        // 填写 Bucket 所在地域。以华北2（北京）为例，Region 填写为cn-beijing
+        region: 'cn-beijing',
+        // 填写 bucket 名称
+        bucket: 'alpha-voice-extreme',
+    })
+
+    const headers = {
+        // 指定该 Object 被下载时网页的缓存行为。
+        // 'Cache-Control': 'no-cache',
+        // 指定过期时间。
+        // 'Expires': 'Wed, 08 Jul 2022 16:57:01 GMT',
+        // 指定 Object 的存储类型。
+        'x-tos-storage-class': 'Standard',
+        // 指定 Object 的访问权限。
+        'x-tos-acl': 'private',
+      };
+
+      async function putObject(data:any) {
+        try {
+          // 填写 Object 完整路径。Object 完整路径中不能包含 Bucket 名称。
+          // 您可以通过自定义文件名（例如 exampleobject.txt）或文件完整路径（例如 exampledir/exampleobject.txt）的形式实现将数据上传到当前 Bucket 或 Bucket 中的指定目录。
+          // data 对象可以自定义为 File 对象、Blob 数据。
+          const result = await client.putObject({
+            key: "exampledir/exampleobject.mp4",
+            body: data,
+            // headers,
+          });
+          console.log(result);
+        } catch (e) {
+          console.log(e);
+        }
+      }
+
+      if (uploadVideoInput.value) {
+        console.log("开始上传")
+        putObject(uploadVideoInput.value)
+      }
+}
+
+
 </script>
 
 <template>
     <div class="common-layout">
         <el-container>
             <el-header class="fixed-header">
-                <NavHome  :isLogin="false" />
+                <NavHome :isLogin="false" />
             </el-header>
             <el-main class="main-content">
                 <el-row class="creative-container">
@@ -70,7 +148,7 @@ const resetUpload = () => {
                                 </el-icon>
                                 选择视频
                             </el-button>
-                            <input ref="fileInput" type="file" accept="video/*" style="display: none"
+                            <input ref="fileInput" id="uploadVideo" type="file" accept="video/*" style="display: none"
                                 @change="handleFileSelect" />
                             <p class="hint-text">点击按钮选择本机视频文件</p>
                         </div>
@@ -92,10 +170,10 @@ const resetUpload = () => {
                                     <div class="upload-progress">
                                         <div class="upload-progress-top"></div>
                                         <div class="upload-progress-content">
-                                            <el-button type="warning" size="large">开始上传</el-button>
+                                            <el-button type="warning" size="large" @click="uploadVideo">开始上传</el-button>
                                             <p></p>
-                                            <el-progress :text-inside="true" :stroke-width="24" :percentage="uploadProgress"
-                                                status="success" />
+                                            <el-progress :text-inside="true" :stroke-width="24"
+                                                :percentage="uploadProgress" status="success" />
                                         </div>
                                     </div>
                                 </el-col>
