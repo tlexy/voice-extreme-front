@@ -53,6 +53,7 @@ let uploadProgress = ref(0)
 const resetUpload = () => {
     videoUrl.value = ''
     uploadVideoInput.value = null
+    uploadProgress.value = 0
 }
 
 import api from '../api/api'
@@ -114,7 +115,9 @@ function handleUpload(tokenRes: any) {
           const result = await client.putObject({
             key: "exampledir/exampleobject.mp4",
             body: data,
-            // headers,
+            progress: (progressEvent: any) => {
+                uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            },
           });
           console.log(result);
         } catch (e) {
@@ -242,6 +245,9 @@ function handleUpload(tokenRes: any) {
     margin: 0;
     padding: 0;
     /* 确保容器至少占满整个视口高度 */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .fixed-header {
@@ -275,9 +281,11 @@ function handleUpload(tokenRes: any) {
     margin: 0;
     left: 0;
     right: 0;
+    flex: 1;
     margin-top: 80px;
     /* 调整为header的实际高度，确保内容不被遮挡 */
     padding: 0;
+    overflow-y: auto;
 }
 
 .submit-button-container {
@@ -293,7 +301,7 @@ function handleUpload(tokenRes: any) {
 
 .left-section,
 .right-section {
-    min-height: 80vh;
+    min-height: calc(100vh - 80px);
     padding: 40px;
     box-sizing: border-box;
 }
@@ -329,11 +337,26 @@ function handleUpload(tokenRes: any) {
 .video-player {
     width: 100%;
     max-width: 1200px;
-    max-height: 70hv;
+    max-height: 70vh;
     background-color: #ffffff;
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+    overflow-y: hidden;
+}
+
+.video-player-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+ 
+.video-player-container video {
+    max-width: 100%;
+    max-height: 50vh;
+    object-fit: contain;
 }
 
 .right-content {
