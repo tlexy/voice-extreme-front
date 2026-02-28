@@ -115,8 +115,8 @@ function handleUpload(tokenRes: any) {
           const result = await client.putObject({
             key: "exampledir/exampleobject.mp4",
             body: data,
-            progress: (progressEvent: any) => {
-                uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            progress: (p: number) => {
+                uploadProgress.value = Math.round(p * 100)
             },
           });
           console.log(result);
@@ -176,7 +176,8 @@ function handleUpload(tokenRes: any) {
                                             <el-button type="warning" size="large" @click="uploadVideo">开始上传</el-button>
                                             <p></p>
                                             <el-progress :text-inside="true" :stroke-width="24"
-                                                :percentage="uploadProgress" status="success" />
+                                                :percentage="uploadProgress"
+                                                :status="uploadProgress === 100 ? 'success' : ''" />
                                         </div>
                                     </div>
                                 </el-col>
