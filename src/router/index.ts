@@ -4,6 +4,7 @@ import HomeView from '../pages/Home.vue'
 import Creative from '../pages/Creative.vue'
 import Register from '../pages/Register.vue'
 import Login from '../pages/Login.vue'
+import TaskList from '../pages/TaskList.vue'
 
 // 1. 定义路由规则
 const routes = [
@@ -16,6 +17,11 @@ const routes = [
     path: '/creative',
     name: 'creative',
     component: Creative // 访问 /creative 时，显示 Creative 组件
+  },
+  {
+    path: '/tasks',
+    name: 'task-list',
+    component: TaskList
   },
   {
     path: '/register',

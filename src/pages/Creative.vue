@@ -5,6 +5,7 @@ import { reactive } from 'vue'
 import { ref } from 'vue'
 import { UploadFilled, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 
 // 响应式数据
 const videoUrl = ref('')
@@ -12,6 +13,7 @@ const fileInput = ref<HTMLInputElement>()
 const uploadVideoInput = ref<File | null>(null)
 const uploadVideoPath = ref('')
 const uploadVideoExtension = ref('')
+const router = useRouter()
 
 // 触发文件选择
 const triggerFileInput = () => {
@@ -100,8 +102,13 @@ function submitTask() {
     }
 
     api.post('/v1/task/submit', payload)
-        .then(() => {
-            ElMessage.success('任务提交成功')
+        .then(res => {
+            if (res.data?.code === 0) {
+                ElMessage.success('任务提交成功')
+                router.push('/tasks')
+            } else {
+                ElMessage.error(res.data?.message || '任务提交失败')
+            }
         })
         .catch(err => {
             console.error('任务提交失败', err)
