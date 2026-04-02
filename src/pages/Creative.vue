@@ -4,11 +4,14 @@ import NavHome from '../components/NavHome.vue'
 import { reactive } from 'vue'
 import { ref } from 'vue'
 import { UploadFilled, Refresh } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 // 响应式数据
 const videoUrl = ref('')
 const fileInput = ref<HTMLInputElement>()
 const uploadVideoInput = ref<File | null>(null)
+const uploadVideoPath = ref('')
+const uploadVideoExtension = ref('')
 
 // 触发文件选择
 const triggerFileInput = () => {
@@ -21,9 +24,15 @@ const handleFileSelect = (event: Event) => {
     const file = target.files?.[0]
 
     if (file) {
+        const lastDotIndex = file.name.lastIndexOf('.')
+        const fileExtension = lastDotIndex >= 0 ? file.name.slice(lastDotIndex) : ''
+
         // 创建视频预览URL
         videoUrl.value = URL.createObjectURL(file)
         uploadVideoInput.value = file
+        uploadVideoPath.value = ''
+        uploadVideoExtension.value = fileExtension
+        uploadProgress.value = 0
 
         // 重置文件输入，允许选择相同的文件
         target.value = ''
@@ -33,14 +42,14 @@ const handleFileSelect = (event: Event) => {
 // do not use same name with ref
 const form = reactive({
     name: '',
-    region: '',
+    origin: 'zh',
     date1: '',
     date2: '',
     delivery: false,
     type: [],
     resource: '',
     desc: '',
-    target: '',
+    target: 'en',
 })
 
 let textRecognitionMode = ref('ocr')
@@ -53,11 +62,14 @@ let uploadProgress = ref(0)
 const resetUpload = () => {
     videoUrl.value = ''
     uploadVideoInput.value = null
+    uploadVideoPath.value = ''
+    uploadVideoExtension.value = ''
     uploadProgress.value = 0
 }
 
 import api from '../api/api'
 import TOS from '@volcengine/tos-sdk';
+import { nanoid } from 'nanoid'
 
 // 上传视频
 function uploadVideo() {
@@ -68,18 +80,46 @@ function uploadVideo() {
         })
         .catch(err => {
             console.error('获取上传token失败', err)
+            ElMessage.error('获取上传token失败')
+        })
+}
+
+function submitTask() {
+    if (!uploadVideoPath.value) {
+        ElMessage.warning('请先上传视频后再提交任务')
+        return
+    }
+
+    const payload = {
+        video_path: uploadVideoPath.value,
+        source_language: form.origin,
+        target_language: form.target,
+        text_recognition_mode: textRecognitionMode.value,
+        text_erase_mode: textEraseMode.value,
+        tts_mode: ttsMode.value,
+    }
+
+    api.post('/v1/task/submit', payload)
+        .then(() => {
+            ElMessage.success('任务提交成功')
+        })
+        .catch(err => {
+            console.error('任务提交失败', err)
+            ElMessage.error('任务提交失败')
         })
 }
 
 function handleUpload(tokenRes: any) {
     if (tokenRes.code !== 200) {
         console.error('获取上传token失败')
+        ElMessage.error('获取上传token失败')
         return
     }
     console.log("start upload video")
     const token = tokenRes.data.token
     const accessKey = tokenRes.data.access_key_id
     const secretKey = tokenRes.data.access_key_secret
+    const uploadPath = tokenRes.data.upload_path
     console.log(accessKey)
     console.log(secretKey)
 
@@ -96,38 +136,32 @@ function handleUpload(tokenRes: any) {
         bucket: 'alpha-voice-extreme',
     })
 
-    const headers = {
-        // 指定该 Object 被下载时网页的缓存行为。
-        // 'Cache-Control': 'no-cache',
-        // 指定过期时间。
-        // 'Expires': 'Wed, 08 Jul 2022 16:57:01 GMT',
-        // 指定 Object 的存储类型。
-        'x-tos-storage-class': 'Standard',
-        // 指定 Object 的访问权限。
-        'x-tos-acl': 'private',
-      };
-
-      async function putObject(data:any) {
+      async function putObject(prefix: string, data:any) {
         try {
           // 填写 Object 完整路径。Object 完整路径中不能包含 Bucket 名称。
           // 您可以通过自定义文件名（例如 exampleobject.txt）或文件完整路径（例如 exampledir/exampleobject.txt）的形式实现将数据上传到当前 Bucket 或 Bucket 中的指定目录。
           // data 对象可以自定义为 File 对象、Blob 数据。
-          const result = await client.putObject({
-            key: "exampledir/exampleobject.mp4",
+          const randomFileName = `${nanoid()}${uploadVideoExtension.value}`
+          const fullPath = `${prefix}/${randomFileName}`
+          await client.putObject({
+            key: fullPath,
             body: data,
             progress: (p: number) => {
                 uploadProgress.value = Math.round(p * 100)
             },
           });
-          console.log(result);
+          uploadVideoPath.value = fullPath
+          ElMessage.success('视频上传成功')
         } catch (e) {
+          uploadVideoPath.value = ''
           console.log(e);
+          ElMessage.error('视频上传失败')
         }
       }
 
       if (uploadVideoInput.value) {
         console.log("开始上传")
-        putObject(uploadVideoInput.value)
+        putObject(uploadPath, uploadVideoInput.value)
       }
 }
 
@@ -190,15 +224,15 @@ function handleUpload(tokenRes: any) {
                             <h3>视频处理选项</h3>
                             <el-form :model="form" label-width="auto" style="max-width: 600px">
                                 <el-form-item label="原始语言">
-                                    <el-select v-model="form.region" placeholder="选择视频原语言">
-                                        <el-option label="Zone one" value="shanghai" />
-                                        <el-option label="Zone two" value="beijing" />
+                                    <el-select v-model="form.origin" placeholder="选择视频原语言">
+                                        <el-option label="中文" value="zh" />
+                                        <el-option label="英文" value="en" />
                                     </el-select>
                                 </el-form-item>
                                 <el-form-item label="目标语言">
                                     <el-select v-model="form.target" placeholder="请选择目标语言">
-                                        <el-option label="Zone one" value="shanghai" />
-                                        <el-option label="Zone two" value="beijing" />
+                                        <el-option label="中文" value="zh" />
+                                        <el-option label="英文" value="en" />
                                     </el-select>
                                 </el-form-item>
                                 <el-form-item label="字幕识别模式" label-position="right">
@@ -225,7 +259,7 @@ function handleUpload(tokenRes: any) {
                                 </el-form-item>
                             </el-form>
                             <div class="submit-button-container">
-                                <el-button type="primary" size="large">
+                                <el-button type="primary" size="large" @click="submitTask">
                                     <el-icon>
                                         <UploadFilled />
                                     </el-icon>

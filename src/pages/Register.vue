@@ -186,7 +186,7 @@ function drawCaptcha() {
   const colors = ['#e74c3c', '#2980b9', '#27ae60', '#8e44ad']
   captchaCode.split('').forEach((char, i) => {
     ctx.font = `bold ${20 + Math.random() * 6}px Arial`
-    ctx.fillStyle = colors[i % colors.length]
+    ctx.fillStyle = colors[i % colors.length] ?? '#e74c3c'
     ctx.save()
     ctx.translate(15 + i * 26, h / 2 + 6)
     ctx.rotate((Math.random() - 0.5) * 0.4)
